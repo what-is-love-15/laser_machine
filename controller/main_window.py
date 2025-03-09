@@ -1,55 +1,141 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel
-from laser_machine.laser_server import LaserMachine
+import socket
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, QFrame, \
+    QHBoxLayout
+from PyQt6.QtGui import QPainter, QColor, QPen
+from PyQt6.QtCore import Qt
 
 
-class LaserController(QWidget):
+class LaserView(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(500, 500)  # поле
+        self.laser_position = (0, 0)  # позиция в начале
+        self.past_positions = []  # прошлые линии
+        self.is_on = False
+
+    def update_laser(self, x, y, is_on):
+        self.past_positions.append(self.laser_position)
+        self.laser_position = (x, y)
+        self.is_on = is_on  # запомнили состояние
+        self.update()  # перерисовываем поле
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(240, 240, 240))  # наш фон
+
+        pen = QPen(Qt.gray, 1, Qt.Dotline)  # рисуем сетку
+        painter.setPen(pen)
+        for i in range(0, 501, 50):
+            painter.drawLine(i, 0, i, 500)
+            painter.drawLine(0, i, 500, i)
+
+        pen.setWidth(2)  # рисуем прошлые перемещения лазера
+        pen.setColor(Qt.darkGray)
+        painter.setPen(pen)
+        for i in range(1, len(self.past_positions)):
+            painter.drawLine(*self.past_positions[i - 1], *self.past_positions[i])
+
+        if self.is_on:  # рисуем текущее положение лазера
+            color = Qt.red
+        else:
+            color = Qt.blue
+        painter.setBrush(color)
+        painter.setPen(Qt.NoPen)
+        x, y = self.laser_position
+        painter.drawEllipse(x - 5, y - 5, 10, 10)  # кружок лазера
+
+
+class LaserClient(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Laser Controller")
-        self.setGeometry(100, 100, 400, 300)
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # подключение к серверу
+        self.client.connect(('localhost', 12345))
 
-        self.laser_machine = LaserMachine()
+        self.initUI()
 
-        self.speed_label = QLabel("Set Speed:")  # установка скорости
-        self.speed_input = QLineEdit()
-        self.speed_input.setPlaceholderText("Enter speed")
+    def initUI(self):
+        main_layout = QVBoxLayout()
+        controls_layout = QVBoxLayout()
+        layout = QHBoxLayout()
 
-        self.toggle_button = QPushButton("Turn On Laser")  # включенный лазер
-        self.toggle_button.clicked.connect(self.toggle_laser)
+        self.laser_view = LaserView()  # поле для визуализации
 
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.speed_label)
-        self.layout.addWidget(self.speed_input)
-        self.layout.addWidget(self.toggle_button)
+        self.coord_x = QLineEdit(self)  # ввод x и y
+        self.coord_x.setPlaceholderText('Введите X')
+        self.coord_y = QLineEdit(self)
+        self.coord_y.setPlaceholderText('Введите Y')
+        controls_layout.addWidget(QLabel('Координаты:'))
+        controls_layout.addWidget(self.coord_x)
+        controls_layout.addWidget(self.coord_y)
 
-        self.setLayout(self.layout)
+        self.move_button = QPushButton('Двигаться', self)  # кнопка двигаться
+        self.move_button.clicked.connect(self.send_move)
+        controls_layout.addWidget(self.move_button)
 
-    def toggle_laser(self):  # вкл/выкл лазер
-        current_text = self.toggle_button.text()
-        if current_text == "Turn On Laser":
-            self.laser_machine.turn_on()
-            self.toggle_button.setText("Turn Off Laser")
-            print("Laser turned ON")
-        else:
-            self.laser_machine.turn_off()
-            self.toggle_button.setText("Turn On Laser")
-            print("Laser turned OFF")
+        self.speed_box = QSpinBox(self)  # ползунок скорости
+        self.speed_box.setRange(1, 10)
+        self.speed_box.setValue(1)
+        self.speed_box.valueChanged.connect(self.set_speed)
+        controls_layout.addWidget(QLabel('Скорость:'))
+        controls_layout.addWidget(self.speed_box)
 
-    def move(self):
+        self.laser_on_button = QPushButton('Лазер ВКЛ', self)  # кнопки вкл и выкл
+        self.laser_off_button = QPushButton('Лазер ВЫКЛ', self)
+        self.laser_on_button.clicked.connect(lambda: self.send_command('LASER ON'))
+        self.laser_off_button.clicked.connect(lambda: self.send_command('LASER OFF'))
+        controls_layout.addWidget(self.laser_on_button)
+        controls_layout.addWidget(self.laser_off_button)
+
+        self.status_button = QPushButton('Проверить статус', self)  # кнопка статуса
+        self.status_button.clicked.connect(self.get_status)
+        controls_layout.addWidget(self.status_button)
+
+        self.status_label = QLabel('Статус: неизвестно', self)  # поле для вывода статуса
+        controls_layout.addWidget(self.status_label)
+
+        layout.addLayout(controls_layout)
+        layout.addWidget(self.laser_view)
+
+        main_layout.addLayout(layout)
+        self.setLayout(main_layout)
+        self.setWindowTitle('Управление лазерным станком')
+        self.show()
+
+    def send_move(self):
+        x = self.coord_x.text()
+        y = self.coord_y.text()
+        if x.isdigit() and y.isdigit():
+            self.send_command(f'MOVE {x} {y}', update_view=True)
+
+    def set_speed(self):
+        speed = self.speed_box.value()
+        self.send_command(f'SPEED {speed}')
+
+    def get_status(self):
+        self.send_command('STATUS', update_status=True)
+
+    def send_command(self, command, update_status=False, update_view=False):
         try:
-            speed = float(self.speed_input.text())
-            self.laser_machine.set_speed(speed)
-        except ValueError:
-            print('Invalid speed')
-            return
+            self.client.send(command.encode())
+            response = self.client.recv(1024).decode().strip()
+            print(f'Ответ сервера: {response}')
 
-        self.laser_machine.move_to(100, 100)  # произвольная точка
+            if update_status:
+                self.status_label.setText(f'Статус: {response}')
+
+            if update_view:
+                parts = response.split()
+                if len(parts) == 4 and parts[0] == 'OK':
+                    x, y = int(parts[2]), int(parts[3])
+                    is_on = self.laser_on_button.isChecked()
+                    self.laser_view.update_laser(x, y, is_on)
+
+        except Exception as e:
+            self.status_label.setText(f'Ошибка: {e}')
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = LaserController()
-    window.show()
-    sys.exit(app.exec())
+app = QApplication(sys.argv)
+window = LaserClient()
+sys.exit(app.exec())

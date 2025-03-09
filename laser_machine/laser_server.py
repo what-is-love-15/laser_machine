@@ -9,6 +9,9 @@ class LaserMachine:
         self.is_on = False  # вкл/выкл лазер
         self.speed = 1  # шагов в секунду
 
+    def get_status(self):
+        return f'STATUS {self.x} {self.y} {"ON" if self.is_on else "OFF"}'
+
     def set_laser(self, state):
         self.is_on = state
         print(f"Лазер {'включен' if state else 'выключен'}")
@@ -60,32 +63,38 @@ print(f'ПОдключение от {addr}')
 machine = LaserMachine()  # создали наш станок
 
 while True:
-    data = conn.recv(1024).decode()
-    if not data:
+    try:
+        data = conn.recv(1024).decode().strip()
+        if not data:
+            break
+
+        print(f'Получена команда: {data}')
+
+        if data.startswith('MOVE'):
+            _, x, y = data.split()
+            machine.move_to(int(x), int(y))
+            conn.sendall(f'OK MOVED {machine.x} {machine.y}\n'.encode())
+
+        elif data == 'LASER ON':
+            machine.set_laser(True)
+            conn.sendall('OK LASER ON\n'.encode())
+
+        elif data == 'LASER OFF':
+            machine.set_laser(False)
+            conn.sendall('OK LASER OFF\n'.encode())
+
+        elif data.startswith('SPEED'):
+            _, speed = data.split()
+            machine.set_speed(int(speed))
+            conn.sendall(f'OK SPEED {machine.speed}\n'.encode())
+
+        elif data == 'STATUS':
+            status = machine.get_status()
+            conn.sendall((status + '\n').encode())
+
+    except ConnectionError:
+        print('Клиент отключился')
         break
-
-    print(f'Получена команда: {data}')
-
-    if data.startswith('MOVE'):
-        _, x, y = data.split()
-        machine.move_to(int(x), int(y))
-        conn.send(f'OK MOVED {machine.x} {machine.y}'.encode())
-
-    elif data == 'LASER ON':
-        machine.set_laser(True)
-        conn.send('OK LASER ON'.encode())
-
-    elif data == 'LASER OFF':
-        machine.set_laser(False)
-        conn.send('OK LASER OFF'.encode())
-
-    elif data.startswith('SPEED'):
-        _, speed = data.split()
-        machine.set_speed(int(speed))
-        conn.send(f'OK SPEED {machine.speed}'.encode())
-
-    elif data == 'STATUS':
-        conn.send(f'STATUS {machine.x} {machine.y} {int(machine.is_on)}'.encode())
 
 conn.close()
 server.close()
