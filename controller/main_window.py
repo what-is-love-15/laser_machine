@@ -1,6 +1,6 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel
-from laser_machine.laser import LaserMachine
+from laser_machine.laser_server import LaserMachine
 
 
 class LaserController(QWidget):
