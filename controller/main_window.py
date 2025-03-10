@@ -7,12 +7,13 @@ from PyQt6.QtCore import Qt
 
 
 class LaserView(QWidget):
-    def __init__(self):
+    def __init__(self, client):
         super().__init__()
         self.setFixedSize(500, 500)  # поле
         self.laser_position = (0, 0)  # позиция в начале
         self.past_positions = []  # прошлые линии
         self.is_on = False
+        self.client = client  # ссылка на клиент для отправки команд
 
     def update_laser(self, x, y, is_on):
         self.past_positions.append(self.laser_position)
@@ -20,28 +21,40 @@ class LaserView(QWidget):
         self.is_on = is_on  # запомнили состояние
         self.update()  # перерисовываем поле
 
+    def mouse_event(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            x = event.position().x()
+            y = event.position().y()
+
+            x_scaled = int(x / self.width() * 500)  # переводим координаты из пикселей в систему 500х500
+            y_scaled = int(y / self.height() * 500)
+
+            print(f'Клик {x_scaled}, {y_scaled}')
+
+            self.client.send_command(f'MOVE {x_scaled} {y_scaled}', update_view=True)  # отправка команды MOVE
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(240, 240, 240))  # наш фон
 
-        pen = QPen(Qt.gray, 1, Qt.Dotline)  # рисуем сетку
+        pen = QPen(Qt.GlobalColor.gray, 1, Qt.PenStyle.DotLine)  # рисуем сетку
         painter.setPen(pen)
         for i in range(0, 501, 50):
             painter.drawLine(i, 0, i, 500)
             painter.drawLine(0, i, 500, i)
 
         pen.setWidth(2)  # рисуем прошлые перемещения лазера
-        pen.setColor(Qt.darkGray)
+        pen.setColor(Qt.GlobalColor.darkGray)
         painter.setPen(pen)
         for i in range(1, len(self.past_positions)):
             painter.drawLine(*self.past_positions[i - 1], *self.past_positions[i])
 
         if self.is_on:  # рисуем текущее положение лазера
-            color = Qt.red
+            color = Qt.GlobalColor.red
         else:
-            color = Qt.blue
+            color = Qt.GlobalColor.blue
         painter.setBrush(color)
-        painter.setPen(Qt.NoPen)
+        painter.setPen(Qt.PenStyle.NoPen)
         x, y = self.laser_position
         painter.drawEllipse(x - 5, y - 5, 10, 10)  # кружок лазера
 
@@ -60,7 +73,7 @@ class LaserClient(QWidget):
         controls_layout = QVBoxLayout()
         layout = QHBoxLayout()
 
-        self.laser_view = LaserView()  # поле для визуализации
+        self.laser_view = LaserView(self)  # поле для визуализации
 
         self.coord_x = QLineEdit(self)  # ввод x и y
         self.coord_x.setPlaceholderText('Введите X')

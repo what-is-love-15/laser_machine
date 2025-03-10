@@ -58,7 +58,7 @@ server.listen(1)
 
 print('Ожидаем подключение...')
 conn, addr = server.accept()
-print(f'ПОдключение от {addr}')
+print(f'Подключение от {addr}')
 
 machine = LaserMachine()  # создали наш станок
 
