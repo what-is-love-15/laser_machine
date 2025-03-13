@@ -16,7 +16,10 @@ class LaserView(QWidget):
         self.client = client  # ссылка на клиент для отправки команд
 
     def update_laser(self, x, y, is_on):
-        self.past_positions.append(self.laser_position)
+        print(f'Обновление лазера: ({x}, {y}), Лазер {"ВКЛ" if is_on else "ВЫКЛ"}')  # Отладка
+        if self.is_on and is_on:
+            self.past_positions.append(self.laser_position)
+
         self.laser_position = (x, y)
         self.is_on = is_on  # запомнили состояние
         self.update()  # перерисовываем поле
@@ -43,16 +46,13 @@ class LaserView(QWidget):
             painter.drawLine(i, 0, i, 500)
             painter.drawLine(0, i, 500, i)
 
-        pen.setWidth(2)  # рисуем прошлые перемещения лазера
+        pen.setWidth(2)  # рисуем прошлые перемещения лазера (если был включен)
         pen.setColor(Qt.GlobalColor.darkGray)
         painter.setPen(pen)
         for i in range(1, len(self.past_positions)):
             painter.drawLine(*self.past_positions[i - 1], *self.past_positions[i])
 
-        if self.is_on:  # рисуем текущее положение лазера
-            color = Qt.GlobalColor.red
-        else:
-            color = Qt.GlobalColor.blue
+        color = QColor(255, 0, 0) if self.is_on else QColor(0, 0, 255)  # рисуем текущее положение лазера
         painter.setBrush(color)
         painter.setPen(Qt.PenStyle.NoPen)
         x, y = self.laser_position
@@ -138,11 +138,17 @@ class LaserClient(QWidget):
             if update_status:
                 self.status_label.setText(f'Статус: {response}')
 
+            if command == 'LASER ON':
+                self.laser_view.is_on = True
+            elif command == 'LASER OFF':
+                self.laser_view.is_on = False
+
             if update_view:
                 parts = response.split()
                 if len(parts) == 4 and parts[0] == 'OK':
                     x, y = int(parts[2]), int(parts[3])
-                    is_on = self.laser_on_button.isChecked()
+                    is_on = self.laser_view.is_on
+                    print(f'Передаём в update_laser: ({x}, {y}), Лазер {"ВКЛ" if is_on else "ВЫКЛ"}')  # Отладка
                     self.laser_view.update_laser(x, y, is_on)
 
         except Exception as e:
