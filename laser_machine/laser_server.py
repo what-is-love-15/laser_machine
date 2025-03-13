@@ -5,12 +5,12 @@ import time
 class LaserMachine:
     def __init__(self):  # состояние стонка
         self.x = 0  # текущие координаты
-        self.y = 0
+        self.y = 500
         self.is_on = False  # вкл/выкл лазер
         self.speed = 1  # шагов в секунду
 
     def get_status(self):
-        return f'STATUS {self.x} {self.y} {"ON" if self.is_on else "OFF"}'
+        return f'STATUS {self.x} {500 - self.y} {"ON" if self.is_on else "OFF"}'
 
     def set_laser(self, state):
         self.is_on = state
@@ -21,10 +21,11 @@ class LaserMachine:
         print(f'Скорость установлена: {self.speed} шагов/сек')
 
     def move_to(self, x2, y2):
+        y2 = 500 - y2
         path = self.bresenham(self.x, self.y, x2, y2)
         for x, y in path:
             self.x, self.y = x, y
-            print(f'Сейчас лазер в точке: ({self.x}, {self.y})')
+            print(f'Сейчас лазер в точке: ({self.x}, {500 - self.y})')
             time.sleep(1 / self.speed)  # ждем, симуляция движения
         print('Движение завершено')
 

@@ -1,8 +1,8 @@
 import sys
 import socket
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, QFrame, \
-    QHBoxLayout
-from PyQt6.QtGui import QPainter, QColor, QPen
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, \
+    QHBoxLayout, QFileDialog
+from PyQt6.QtGui import QPainter, QColor, QPen, QPixmap, QImage
 from PyQt6.QtCore import Qt
 
 
@@ -149,6 +149,9 @@ class LaserClient(QWidget):
             self.status_label.setText(f'Ошибка: {e}')
 
 
-app = QApplication(sys.argv)
-window = LaserClient()
-sys.exit(app.exec())
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    client = LaserClient()
+    client.setWindowTitle('Контроль лазера')
+    client.show()
+    sys.exit(app.exec())
