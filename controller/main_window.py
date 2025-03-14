@@ -11,26 +11,35 @@ class LaserView(QWidget):
         super().__init__()
         self.setFixedSize(500, 500)  # поле
         self.laser_position = (0, 0)  # позиция в начале
-        self.past_positions = []  # прошлые линии
+        self.drawing_segments = []  # отрезки
+        self.current_segment = []  # текущий отрезок
         self.is_on = False
         self.client = client  # ссылка на клиент для отправки команд
 
     def update_laser(self, x, y, is_on):
         print(f'Обновление лазера: ({x}, {y}), Лазер {"ВКЛ" if is_on else "ВЫКЛ"}')  # Отладка
-        if self.is_on and is_on:
-            self.past_positions.append(self.laser_position)
+
+        if self.is_on:
+            self.current_segment.append(self.laser_position)
+
+        if not self.is_on and is_on:
+            self.current_segment = [self.laser_position]
+        elif not is_on:
+            if len(self.current_segment) > 1:
+                self.drawing_segments.append(self.current_segment)
+            self.current_segment = []
 
         self.laser_position = (x, y)
         self.is_on = is_on  # запомнили состояние
         self.update()  # перерисовываем поле
 
-    def mouse_event(self, event):
+    def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             x = event.position().x()
             y = event.position().y()
 
-            x_scaled = int(x / self.width() * 500)  # переводим координаты из пикселей в систему 500х500
-            y_scaled = int(y / self.height() * 500)
+            x_scaled = round(x / self.width() * 500)  # переводим координаты из пикселей в систему 500х500
+            y_scaled = 500 - round(y / self.height() * 500)
 
             print(f'Клик {x_scaled}, {y_scaled}')
 
@@ -49,8 +58,15 @@ class LaserView(QWidget):
         pen.setWidth(2)  # рисуем прошлые перемещения лазера (если был включен)
         pen.setColor(Qt.GlobalColor.darkGray)
         painter.setPen(pen)
-        for i in range(1, len(self.past_positions)):
-            painter.drawLine(*self.past_positions[i - 1], *self.past_positions[i])
+
+        for segment in self.drawing_segments:
+            if len(segment) > 1:
+                for i in range(1, len(segment)):
+                    painter.drawLine(*segment[i - 1], *segment[i])
+
+        if self.is_on and len(self.current_segment) > 1:
+            for i in range(1, len(self.current_segment)):
+                painter.drawLine(*self.current_segment[i - 1], *self.current_segment[i])
 
         color = QColor(255, 0, 0) if self.is_on else QColor(0, 0, 255)  # рисуем текущее положение лазера
         painter.setBrush(color)
@@ -137,6 +153,7 @@ class LaserClient(QWidget):
 
             if update_status:
                 self.status_label.setText(f'Статус: {response}')
+                return
 
             if command == 'LASER ON':
                 self.laser_view.is_on = True
