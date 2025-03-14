@@ -8,6 +8,10 @@ class LaserMachine:
         self.y = 500
         self.is_on = False  # вкл/выкл лазер
         self.speed = 1  # шагов в секунду
+        self.min_speed = 1
+        self.max_speed = 10
+        self.min_coord = 0
+        self.max_coord = 500
 
     def get_status(self):
         return f'STATUS {self.x} {500 - self.y} {"ON" if self.is_on else "OFF"}'
@@ -17,17 +21,18 @@ class LaserMachine:
         print(f"Лазер {'включен' if state else 'выключен'}")
 
     def set_speed(self, speed):
-        self.speed = max(1, speed)
+        self.speed = max(self.min_speed, min(speed, self.speed))
         print(f'Скорость установлена: {self.speed} шагов/сек')
 
     def move_to(self, x2, y2):
         y2 = 500 - y2
         path = self.bresenham(self.x, self.y, x2, y2)
+        print('----- Движение началось -----')
         for x, y in path:
             self.x, self.y = x, y
             print(f'Сейчас лазер в точке: ({self.x}, {500 - self.y})')
             time.sleep(1 / self.speed)  # ждем, симуляция движения
-        print('Движение завершено')
+        print('----- Движение завершено -----')
 
     def bresenham(self, x1, y1, x2, y2):
         points = []
@@ -50,13 +55,16 @@ class LaserMachine:
         points.append((x2, y2))  # Добавляем конечную точку
         return points
 
+    def get_range(self):
+        return f'RANGE SPEED {self.min_speed}-{self.max_speed} COORD {self.min_coord}-{self.max_coord}'
+
 
 # запуск сервера
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(('localhost', 12345))
 server.listen(1)
 
-print('Ожидаем подключение...')
+print('Ожидаем подключение --->>>')
 conn, addr = server.accept()
 print(f'Подключение от {addr}')
 
@@ -91,6 +99,10 @@ while True:
         elif data == 'STATUS':
             status = machine.get_status()
             conn.sendall((status + '\n').encode())
+
+        elif data == 'RANGE':
+            range_info = machine.get_range()
+            conn.sendall((range_info + '\n').encode())
 
     except ConnectionError:
         print('Клиент отключился')

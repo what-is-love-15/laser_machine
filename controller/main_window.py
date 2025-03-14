@@ -17,8 +17,6 @@ class LaserView(QWidget):
         self.client = client  # ссылка на клиент для отправки команд
 
     def update_laser(self, x, y, is_on):
-        print(f'Обновление лазера: ({x}, {y}), Лазер {"ВКЛ" if is_on else "ВЫКЛ"}')  # Отладка
-
         if self.is_on:
             self.current_segment.append(self.laser_position)
 
@@ -41,7 +39,7 @@ class LaserView(QWidget):
             x_scaled = round(x / self.width() * 500)  # переводим координаты из пикселей в систему 500х500
             y_scaled = 500 - round(y / self.height() * 500)
 
-            print(f'Клик {x_scaled}, {y_scaled}')
+            print(f'Движение в ({x_scaled}, {y_scaled})')
 
             self.client.send_command(f'MOVE {x_scaled} {y_scaled}', update_view=True)  # отправка команды MOVE
 
@@ -121,6 +119,10 @@ class LaserClient(QWidget):
         self.status_button.clicked.connect(self.get_status)
         controls_layout.addWidget(self.status_button)
 
+        self.range_button = QPushButton('Проверить границы', self)
+        self.range_button.clicked.connect(self.get_range)
+        controls_layout.addWidget(self.range_button)
+
         self.status_label = QLabel('Статус: неизвестно', self)  # поле для вывода статуса
         controls_layout.addWidget(self.status_label)
 
@@ -145,6 +147,9 @@ class LaserClient(QWidget):
     def get_status(self):
         self.send_command('STATUS', update_status=True)
 
+    def get_range(self):
+        self.send_command(f'RANGE', update_status=True)
+
     def send_command(self, command, update_status=False, update_view=False):
         try:
             self.client.send(command.encode())
@@ -165,7 +170,6 @@ class LaserClient(QWidget):
                 if len(parts) == 4 and parts[0] == 'OK':
                     x, y = int(parts[2]), int(parts[3])
                     is_on = self.laser_view.is_on
-                    print(f'Передаём в update_laser: ({x}, {y}), Лазер {"ВКЛ" if is_on else "ВЫКЛ"}')  # Отладка
                     self.laser_view.update_laser(x, y, is_on)
 
         except Exception as e:
