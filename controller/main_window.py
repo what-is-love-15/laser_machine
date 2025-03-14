@@ -1,8 +1,8 @@
 import sys
 import socket
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, \
-    QHBoxLayout, QFileDialog
-from PyQt6.QtGui import QPainter, QColor, QPen, QPixmap, QImage
+    QHBoxLayout
+from PyQt6.QtGui import QPainter, QColor, QPen
 from PyQt6.QtCore import Qt
 
 
@@ -24,8 +24,12 @@ class LaserView(QWidget):
             self.current_segment = [self.laser_position]
         elif not is_on:
             if len(self.current_segment) > 1:
-                self.drawing_segments.append(self.current_segment)
+                self.drawing_segments.append(self.current_segment[:])
             self.current_segment = []
+
+        if self.is_on and self.current_segment:
+            self.current_segment.append((x, y))
+            self.drawing_segments.append(self.current_segment[:])
 
         self.laser_position = (x, y)
         self.is_on = is_on  # запомнили состояние
@@ -55,6 +59,7 @@ class LaserView(QWidget):
 
         pen.setWidth(2)  # рисуем прошлые перемещения лазера (если был включен)
         pen.setColor(Qt.GlobalColor.darkGray)
+        pen.setStyle(Qt.PenStyle.DashLine)
         painter.setPen(pen)
 
         for segment in self.drawing_segments:
@@ -63,6 +68,10 @@ class LaserView(QWidget):
                     painter.drawLine(*segment[i - 1], *segment[i])
 
         if self.is_on and len(self.current_segment) > 1:
+            pen.setColor(QColor(255, 0, 0))
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.setPen(pen)
+
             for i in range(1, len(self.current_segment)):
                 painter.drawLine(*self.current_segment[i - 1], *self.current_segment[i])
 
@@ -168,7 +177,7 @@ class LaserClient(QWidget):
             if update_view:
                 parts = response.split()
                 if len(parts) == 4 and parts[0] == 'OK':
-                    x, y = int(parts[2]), int(parts[3])
+                    x, y = int(parts[2]), 500 - int(parts[3])
                     is_on = self.laser_view.is_on
                     self.laser_view.update_laser(x, y, is_on)
 

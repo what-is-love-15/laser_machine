@@ -21,7 +21,7 @@ class LaserMachine:
         print(f"Лазер {'включен' if state else 'выключен'}")
 
     def set_speed(self, speed):
-        self.speed = max(self.min_speed, min(speed, self.speed))
+        self.speed = max(self.min_speed, speed)
         print(f'Скорость установлена: {self.speed} шагов/сек')
 
     def move_to(self, x2, y2):
@@ -81,7 +81,7 @@ while True:
         if data.startswith('MOVE'):
             _, x, y = data.split()
             machine.move_to(int(x), int(y))
-            conn.sendall(f'OK MOVED {machine.x} {machine.y}\n'.encode())
+            conn.sendall(f'OK MOVED {machine.x} {500 - machine.y}\n'.encode())
 
         elif data == 'LASER ON':
             machine.set_laser(True)
