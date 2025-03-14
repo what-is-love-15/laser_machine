@@ -86,6 +86,32 @@ class LaserClient(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.setStyleSheet("""
+                   QWidget {
+                       background-color: #2e2e2e;
+                       color: white;
+                       font-family: Arial, sans-serif;
+                   }
+                   QLabel {
+                       font-size: 18px;
+                       color: #dcdcdc;
+                   }
+                   QPushButton {
+                       background-color: #4CAF50;
+                       color: white;
+                       font-size: 16px;
+                       padding: 10px 20px;
+                       border-radius: 10px;
+                       margin: 5px;
+                   }
+                   QPushButton:hover {
+                       background-color: #45a049;
+                   }
+                   QPushButton:pressed {
+                       background-color: #388e3c;
+                   }
+               """)
+
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # подключение к серверу
         self.client.connect(('localhost', 12345))
 
