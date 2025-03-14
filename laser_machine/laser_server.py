@@ -68,7 +68,7 @@ print('Ожидаем подключение --->>>')
 conn, addr = server.accept()
 print(f'Подключение от {addr}')
 
-machine = LaserMachine()  # создали наш станок
+machine = LaserMachine()  # создали станок
 
 while True:
     try:
